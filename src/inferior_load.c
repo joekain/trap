@@ -8,8 +8,9 @@
 
 
 /* Used for ignored arguments */
-static pid_t ignored_pid;
-static void *ignored_ptr;
+static const pid_t ignored_pid;
+static const void *ignored_ptr;
+static const void *no_continue_signal = 0;
 
 static void setup_inferior(const char *path, char *const argv[])
 {
@@ -20,7 +21,16 @@ static void setup_inferior(const char *path, char *const argv[])
 static void attach_to_inferior(pid_t pid)
 {
   while(1) {
+    int status;
+    waitpid(pid, &status, 0);
 
+    if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
+      printf("Inferior stopped on SIGTRAP - continuing...\n");
+      ptrace(PTRACE_CONT, pid, ignored_ptr, no_continue_signal);
+    } else if (WIFEXITED(status)) {
+      printf("Inferior exited - debugger terminating...\n");
+      exit(0);
+    }
   }
 }
 
