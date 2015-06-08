@@ -3,4 +3,4 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules/")
 project(trap)
 enable_testing()
 add_subdirectory(src)
-
+add_subdirectory(test)

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 OUTDIR=_out
-DEFAULT_TARGET=build
+DEFAULT_TARGET=build_and_tests
 BASEDIR=$(dirname $0)
 
 function main {
@@ -19,6 +19,16 @@ function build {
     cd $OUTDIR
     cmake ..
     make
+    cd ..
+}
+
+function tests {
+    cd $OUTDIR
+    ctest --output-on-failure .
+}
+
+function build_and_tests {
+    build && tests
 }
 
 function clean {
