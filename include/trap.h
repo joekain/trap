@@ -49,6 +49,41 @@ typedef void (*trap_breakpoint_callback_t)(trap_inferior_t, trap_breakpoint_t);
  */
 void trap_breakpoint_set_callback(trap_breakpoint_callback_t callback);
 
-void dbg_inferior_exec(const char *path, char *const argv[]);
+/**
+ * @brief Create and execute a new inferior processes.
+ *
+ * @param path The full path to the binary to execute.
+ * @param argv A NULL terminated list of command line arguments to
+ *   pass to the inferior process.
+ * 
+ * @return Returns a handle for the new inferior.
+ *
+ * The arguments to this function match those of execv(3)
+ */
+trap_inferior_t trap_inferior_exec(const char *path, char *const argv[]);
+
+/**
+ * @brief Set a breakpoint in `inferior` at `location`
+ *
+ * `trap_inferior_set_breakpoint` will set a breakpoint in the
+ * inferior so that when the breakpoint is encountered the breakpoint
+ * callback will be called.
+ *
+ * @param inferior The handle of the inferior process in which to set the
+ *   breakpoint.
+ * @param location The location at which to set the breakpoint.
+ */
+trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
+					       char *location);
+
+/**
+ * @brief Continue execution of `inferior`.
+ *
+ * Continue the execution of a stopped process.
+ *
+ * @param inferior The handle of a stopped inferior process which
+ *   should continue execution.
+ */
+void trap_inferior_continue(trap_inferior_t inferior);
 
 #endif /* !defined(_TRAP_H) */
