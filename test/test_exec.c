@@ -39,7 +39,7 @@ int main()
 
   int captured = capturefd(STDOUT_FILENO);
 
-  dbg_inferior_exec("./inferiors/hello", argv);
+  trap_inferior_exec("./inferiors/hello", argv);
 
   verify_text(captured, "Hello World!\n");
 

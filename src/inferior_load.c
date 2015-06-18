@@ -34,7 +34,7 @@ static void attach_to_inferior(pid_t pid)
   }
 }
 
-void dbg_inferior_exec(const char *path, char *const argv[])
+trap_inferior_t trap_inferior_exec(const char *path, char *const argv[])
 {
   pid_t result;
 
@@ -51,4 +51,6 @@ void dbg_inferior_exec(const char *path, char *const argv[])
       break;
     }
   } while (result == -1 && errno == EAGAIN);
+
+  return 0;
 }
