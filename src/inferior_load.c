@@ -1,4 +1,4 @@
-#include <debugger.h>
+#include <trap.h>
 #include "inferior.h"
 #include <sys/ptrace.h>
 #include <sys/wait.h>
