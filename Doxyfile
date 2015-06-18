@@ -1,0 +1,9 @@
+PROJECT_NAME = Trap
+PROJECT_BRIEF = "A lightweight debugger implemented in a library."
+OUTPUT_DIRECTORY = _out/docs
+INPUT = src include
+FILE_PATTERNS = *.c *.h
+RECURSIVE = yes
+OPTIMIZE_OUTPUT_FOR_C = yes
+QUIET = yes
+

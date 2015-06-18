@@ -1,7 +1,7 @@
 #!/bin/bash
 
 OUTDIR=_out
-DEFAULT_TARGET=build_and_tests
+DEFAULT_TARGET=default
 BASEDIR=$(dirname $0)
 
 function main {
@@ -27,8 +27,13 @@ function tests {
     ctest --output-on-failure .
 }
 
-function build_and_tests {
-    build && tests
+function docs {
+    cd $BASEDIR
+    doxygen Doxyfile
+}
+
+function default {
+    build && docs && tests
 }
 
 function clean {
