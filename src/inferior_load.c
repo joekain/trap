@@ -3,9 +3,12 @@
 #include "breakpoint.h"
 #include "inferior.h"
 #include <sys/wait.h>
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+static inferior_t g_inferior;
 
 static void setup_inferior(const char *path, char *const argv[])
 {
@@ -44,17 +47,25 @@ trap_inferior_t trap_inferior_exec(const char *path, char *const argv[])
     }
   } while (result == -1 && errno == EAGAIN);
 
+  g_inferior.pid = result;
+  g_inferior.state = INFERIOR_STOPPED;
   return result;
+}
+
+static inferior_t *inferior_resolve(trap_inferior_t inferior)
+{
+  assert(inferior == g_inferior.pid);
+  return &g_inferior;
 }
 
 void trap_inferior_continue(trap_inferior_t inferior)
 {
-  pid_t pid = inferior;
+  inferior_t *inf = inferior_resolve(inferior);
 
-  ptrace_util_continue(pid);
+  ptrace_util_continue(inf->pid);
   while(1) {
     int status;
-    waitpid(pid, &status, 0);
+    waitpid(inf->pid, &status, 0);
 
     if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
       breakpoint_handle(inferior);
