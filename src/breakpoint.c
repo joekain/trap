@@ -11,6 +11,8 @@ struct breakpoint_t {
 };
 typedef struct breakpoint_t breakpoint_t;
 
+breakpoint_t g_breakpoint;
+
 static trap_breakpoint_callback_t g_callback;
 
 void trap_breakpoint_set_callback(trap_breakpoint_callback_t callback)
@@ -29,7 +31,7 @@ trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
   uintptr_t aligned_address = target_address & ~(0x7UL);
   uintptr_t target_offset = target_address - aligned_address;
 
-  breakpoint_t *bp = malloc(sizeof(breakpoint_t));
+  breakpoint_t *bp = &g_breakpoint;
 
   bp->original_breakpoint_word = ptrace_util_peek_text(inferior_pid,
 						       aligned_address);
@@ -52,7 +54,7 @@ static void breakpoint_trigger_callback(trap_inferior_t inferior,
 
 static trap_breakpoint_t breakpoint_resolve(trap_inferior_t inferior)
 {
-  return 0;
+  return &g_breakpoint;
 }
 
 static void breakpoint_remove(trap_inferior_t inferior,
