@@ -77,8 +77,7 @@ void breakpoint_handle(trap_inferior_t inferior)
   breakpoint_trigger_callback(inferior, bp);
 
   ptrace_util_get_regs(pid, &regs);
-  regs.rip -= 1;
-  ptrace_util_set_regs(pid, &regs);
+  ptrace_util_set_instruction_pointer(pid, regs.rip - 1);
 
   ptrace_util_continue(pid);
 }

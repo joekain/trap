@@ -1,5 +1,9 @@
 #include "ptrace_util.h"
 #include <sys/ptrace.h>
+#include <assert.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /* Used for ignored arguments */
 static const pid_t ignored_pid;
@@ -14,7 +18,11 @@ void ptrace_util_traceme()
 void ptrace_util_continue(pid_t pid)
 {
   static const void *no_continue_signal = 0;
-  ptrace(PTRACE_CONT, pid, ignored_addr, no_continue_signal);
+  int result = ptrace(PTRACE_CONT, pid, ignored_addr, no_continue_signal);
+  if (result != 0) {
+    perror("PTRACE_CONT: ");
+    abort();
+  }
 }
 
 long ptrace_util_peek_text(pid_t pid, unsigned long target_address)
@@ -25,15 +33,37 @@ long ptrace_util_peek_text(pid_t pid, unsigned long target_address)
 void ptrace_util_poke_text(pid_t pid, unsigned long target_address,
                            unsigned long data)
 {
-  ptrace(PTRACE_POKETEXT, pid, (void *)target_address, (void *)data);
+  int result = ptrace(PTRACE_POKETEXT, pid, (void *)target_address, (void *)data);
+  if (result != 0) {
+    perror("PTRACE_POKETEXT: ");
+    abort();
+  }
 }
 
 void ptrace_util_get_regs(pid_t pid, struct user_regs_struct *regs)
 {
-  ptrace(PTRACE_GETREGS, pid, ignored_addr, regs);
+  int result = ptrace(PTRACE_GETREGS, pid, ignored_addr, regs);
+  if (result != 0) {
+    perror("PTRACE_GETREGS: ");
+    abort();
+  }
 }
 
 void ptrace_util_set_regs(pid_t pid, struct user_regs_struct *regs)
 {
-  ptrace(PTRACE_SETREGS, pid, ignored_addr, &regs);
+  int result = ptrace(PTRACE_SETREGS, pid, ignored_addr, &regs);
+  if (result != 0) {
+    perror("PTRACE_SETREGS: ");
+    abort();
+  }
+}
+
+void ptrace_util_set_instruction_pointer(pid_t pid, uintptr_t ip)
+{
+  uintptr_t offset = offsetof(struct user, regs.rip);
+  int result = ptrace(PTRACE_POKEUSER, pid, offset, ip);
+  if (result != 0) {
+    perror("ptrace_util_set_instruction_pointer: ");
+    abort();
+  }
 }
