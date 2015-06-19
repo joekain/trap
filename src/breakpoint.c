@@ -21,28 +21,32 @@ void trap_breakpoint_set_callback(trap_breakpoint_callback_t callback)
   g_callback = callback;
 }
 
+static void breakpoint_set(trap_inferior_t inferior, breakpoint_t *bp)
+{
+  const uintptr_t int3_opcode = 0xCC;
+  pid_t pid = inferior;
+  uintptr_t target_offset = bp->target_address - bp->aligned_address;
+
+  uintptr_t modified_word;
+  modified_word = bp->original_breakpoint_word;
+  modified_word &= ~(0xFFUL << (target_offset * 8));
+  modified_word |= int3_opcode << (target_offset * 8);
+  ptrace_util_poke_text(pid, bp->aligned_address, modified_word);
+}
+
 trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
                                                char *location)
 {
   const uintptr_t target_address = (uintptr_t)location;
-  const uintptr_t int3_opcode = 0xCC;
-  pid_t inferior_pid = inferior;
-  uintptr_t modified_word;
-
   uintptr_t aligned_address = target_address & ~(0x7UL);
-  uintptr_t target_offset = target_address - aligned_address;
-
   breakpoint_t *bp = &g_breakpoint;
 
-  bp->original_breakpoint_word = ptrace_util_peek_text(inferior_pid,
+  bp->original_breakpoint_word = ptrace_util_peek_text(inferior,
 						       aligned_address);
   bp->target_address = target_address;
   bp->aligned_address = aligned_address;
-
-  modified_word = bp->original_breakpoint_word;
-  modified_word &= ~(0xFFUL << (target_offset * 8));
-  modified_word |= int3_opcode << (target_offset * 8);
-  ptrace_util_poke_text(inferior_pid, aligned_address, modified_word);
+  
+  breakpoint_set(inferior, bp);
 
   return bp;
 }
@@ -85,19 +89,9 @@ static void step_over_breakpoint(trap_inferior_t inferior)
 
 static void finish_breakpoint(trap_inferior_t inferior)
 {
-  const uintptr_t int3_opcode = 0xCC;
-  pid_t pid = inferior;
-
   breakpoint_t *bp = breakpoint_resolve(inferior);
-  uintptr_t target_offset = bp->target_address - bp->aligned_address;
-
-  uintptr_t modified_word;
-  modified_word = bp->original_breakpoint_word;
-  modified_word &= ~(0xFFUL << (target_offset * 8));
-  modified_word |= int3_opcode << (target_offset * 8);
-  ptrace_util_poke_text(pid, bp->aligned_address, modified_word);
-
-  ptrace_util_continue(pid);
+  breakpoint_set(inferior, bp);
+  ptrace_util_continue(inferior);
 }
 
 enum inferior_state_t breakpoint_handle(trap_inferior_t inferior, enum inferior_state_t state)
