@@ -14,7 +14,7 @@ void trap_breakpoint_set_callback(trap_breakpoint_callback_t callback)
 trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
                                                char *location)
 {
-  const uintptr_t target_address = 0x000000000040079d;
+  const uintptr_t target_address = (uintptr_t)location;
   const uintptr_t int3_opcode = 0xCC;
   pid_t inferior_pid = inferior;
   uintptr_t modified_word;
