@@ -17,9 +17,7 @@ function main {
 function build {
     mkdir -p $OUTDIR
     cd $OUTDIR
-    cmake ..
-    make
-    cd ..
+    cmake .. && make && cd ..
 }
 
 function tests {
