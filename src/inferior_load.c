@@ -1,6 +1,7 @@
 #include <trap.h>
 #include "inferior.h"
 #include <sys/ptrace.h>
+#include <sys/user.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <stdio.h>
@@ -20,17 +21,14 @@ static void setup_inferior(const char *path, char *const argv[])
 
 static void attach_to_inferior(pid_t pid)
 {
-  while(1) {
-    int status;
-    waitpid(pid, &status, 0);
+  int status;
+  waitpid(pid, &status, 0);
 
-    if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
-      printf("Inferior stopped on SIGTRAP - continuing...\n");
-      ptrace(PTRACE_CONT, pid, ignored_ptr, no_continue_signal);
-    } else if (WIFEXITED(status)) {
-      printf("Inferior exited - debugger terminating...\n");
-      return;
-    }
+  if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
+    return;
+  } else {
+    fprintf(stderr, "Unexpected status for inferior %d when attaching\n", pid);
+    abort();
   }
 }
 
@@ -57,7 +55,23 @@ trap_inferior_t trap_inferior_exec(const char *path, char *const argv[])
 
 void trap_inferior_continue(trap_inferior_t inferior)
 {
-  pid_t inferior_pid = inferior;
+  pid_t pid = inferior;
 
-  ptrace(PTRACE_CONT, inferior_pid, ignored_ptr, no_continue_signal);
+  ptrace(PTRACE_CONT, pid, ignored_ptr, no_continue_signal);
+  while(1) {
+    int status;
+    waitpid(pid, &status, 0);
+
+    if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
+      trap_breakpoint_t bp = breakpoint_resolve(inferior);
+      breakpoint_remove(inferior, bp);
+      breakpoint_trigger_callback(inferior, bp);
+      ptrace(PTRACE_CONT, pid, ignored_ptr, no_continue_signal);
+    } else if (WIFEXITED(status)) {
+      return;
+    } else {
+      fprintf(stderr, "Unexpected stop in trap_inferior_continue: 0x%x\n", status);
+      abort();
+    }
+  }
 }
