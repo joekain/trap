@@ -39,7 +39,8 @@ int main()
 
   int captured = capturefd(STDOUT_FILENO);
 
-  trap_inferior_exec("./inferiors/hello", argv);
+  trap_inferior_t inferior = trap_inferior_exec("./inferiors/hello", argv);
+  trap_inferior_continue(inferior);
 
   verify_text(captured, "Hello World!\n");
 
