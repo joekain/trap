@@ -25,11 +25,9 @@ trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
 
   g_original_breakpoint_word = ptrace_util_peek_text(inferior_pid,
 						     aligned_address);
-  printf("Original word: 0x%016lx\n", g_original_breakpoint_word);
   modified_word = g_original_breakpoint_word;
   modified_word &= ~(0xFFUL << (target_offset * 8));
   modified_word |= int3_opcode << (target_offset * 8);
-  printf("Original word: 0x%016lx\n", modified_word);
   ptrace_util_poke_text(inferior_pid, aligned_address, modified_word);
 
   return 0;
