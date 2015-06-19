@@ -7,6 +7,7 @@
 enum inferior_state_t {
   INFERIOR_RUNNING,
   INFERIOR_STOPPED,
+  INFERIOR_SINGLE_STEPPING,
 };
 
 struct inferior_t {

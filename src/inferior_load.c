@@ -62,13 +62,14 @@ void trap_inferior_continue(trap_inferior_t inferior)
 {
   inferior_t *inf = inferior_resolve(inferior);
 
+  inf->state = INFERIOR_RUNNING;
   ptrace_util_continue(inf->pid);
   while(1) {
     int status;
     waitpid(inf->pid, &status, 0);
 
     if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
-      breakpoint_handle(inferior);
+      inf->state = breakpoint_handle(inferior, inf->state);
     } else if (WIFEXITED(status)) {
       return;
     } else {

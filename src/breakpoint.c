@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <breakpoint.h>
 
 struct breakpoint_t {
   uintptr_t target_address;
@@ -67,7 +68,7 @@ static void breakpoint_remove(trap_inferior_t inferior,
 			bp->original_breakpoint_word);
 }
 
-void breakpoint_handle(trap_inferior_t inferior)
+static void step_over_breakpoint(trap_inferior_t inferior)
 {
   struct user_regs_struct regs;
   pid_t pid = inferior;
@@ -79,5 +80,38 @@ void breakpoint_handle(trap_inferior_t inferior)
   ptrace_util_get_regs(pid, &regs);
   ptrace_util_set_instruction_pointer(pid, regs.rip - 1);
 
+  ptrace_util_single_step(pid);
+}
+
+static void finish_breakpoint(trap_inferior_t inferior)
+{
+  const uintptr_t int3_opcode = 0xCC;
+  pid_t pid = inferior;
+
+  breakpoint_t *bp = breakpoint_resolve(inferior);
+  uintptr_t target_offset = bp->target_address - bp->aligned_address;
+
+  uintptr_t modified_word;
+  modified_word = bp->original_breakpoint_word;
+  modified_word &= ~(0xFFUL << (target_offset * 8));
+  modified_word |= int3_opcode << (target_offset * 8);
+  ptrace_util_poke_text(pid, bp->aligned_address, modified_word);
+
   ptrace_util_continue(pid);
+}
+
+enum inferior_state_t breakpoint_handle(trap_inferior_t inferior, enum inferior_state_t state)
+{
+  switch(state) {
+    case INFERIOR_RUNNING:
+      step_over_breakpoint(inferior);
+      return INFERIOR_SINGLE_STEPPING;
+
+    case INFERIOR_SINGLE_STEPPING:
+      finish_breakpoint(inferior);
+      return INFERIOR_RUNNING;
+
+    default:
+      abort();
+  }
 }
