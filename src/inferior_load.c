@@ -54,3 +54,10 @@ trap_inferior_t trap_inferior_exec(const char *path, char *const argv[])
 
   return result;
 }
+
+void trap_inferior_continue(trap_inferior_t inferior)
+{
+  pid_t inferior_pid = inferior;
+
+  ptrace(PTRACE_CONT, inferior_pid, ignored_ptr, no_continue_signal);
+}
