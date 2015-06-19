@@ -1,15 +1,10 @@
 #include <trap.h>
-#include <sys/ptrace.h>
-#include <unistd.h>
+#include "ptrace_util.h"
 #include <stdio.h>
 #include <stdint.h>
-#include <sys/types.h>
-#include <sys/user.h>
 
 static trap_breakpoint_callback_t g_callback;
 static uintptr_t g_original_breakpoint_word;
-static const void *ignored_ptr;
-static const void *no_continue_signal = 0;
 
 void trap_breakpoint_set_callback(trap_breakpoint_callback_t callback)
 {
@@ -28,14 +23,14 @@ trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
   uintptr_t target_offset = target_address - aligned_address;
 
 
-  g_original_breakpoint_word = ptrace(PTRACE_PEEKTEXT, inferior_pid,
-				      aligned_address, 0);
+  g_original_breakpoint_word = ptrace_util_peek_text(inferior_pid,
+						     aligned_address);
   printf("Original word: 0x%016lx\n", g_original_breakpoint_word);
   modified_word = g_original_breakpoint_word;
   modified_word &= ~(0xFFUL << (target_offset * 8));
   modified_word |= int3_opcode << (target_offset * 8);
   printf("Original word: 0x%016lx\n", modified_word);
-  ptrace(PTRACE_POKETEXT, inferior_pid, aligned_address, modified_word);
+  ptrace_util_poke_text(inferior_pid, aligned_address, modified_word);
 
   return 0;
 }
@@ -54,11 +49,11 @@ static trap_breakpoint_t breakpoint_resolve(trap_inferior_t inferior)
 static void breakpoint_remove(trap_inferior_t inferior,
 			      trap_breakpoint_t handle)
 {
-  const void *target_address = (void *)0x000000000040079d;
+  unsigned long target_address = 0x000000000040079d;
   pid_t inferior_pid = inferior;
 
-  ptrace(PTRACE_POKETEXT, inferior_pid, target_address,
-	 g_original_breakpoint_word);
+  ptrace_util_poke_text(inferior_pid, target_address, 
+			g_original_breakpoint_word);
 }
 
 void breakpoint_handle(trap_inferior_t inferior)
@@ -70,9 +65,9 @@ void breakpoint_handle(trap_inferior_t inferior)
   breakpoint_remove(inferior, bp);
   breakpoint_trigger_callback(inferior, bp);
 
-  ptrace(PTRACE_GETREGS, pid, ignored_ptr, &regs);
+  ptrace_util_get_regs(pid, &regs);
   regs.rip -= 1;
-  ptrace(PTRACE_SETREGS, pid, ignored_ptr, &regs);
+  ptrace_util_set_regs(pid, &regs);
 
-  ptrace(PTRACE_CONT, pid, ignored_ptr, no_continue_signal);
+  ptrace_util_continue(pid);
 }

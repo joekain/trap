@@ -1,21 +1,15 @@
 #include <trap.h>
+#include "ptrace_util.h"
 #include "breakpoint.h"
 #include "inferior.h"
-#include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-
-/* Used for ignored arguments */
-static const pid_t ignored_pid;
-static const void *ignored_ptr;
-static const void *no_continue_signal = 0;
-
 static void setup_inferior(const char *path, char *const argv[])
 {
-  ptrace(PTRACE_TRACEME, ignored_pid, ignored_ptr, ignored_ptr);
+  ptrace_util_traceme();
   execv(path, argv);
 }
 
@@ -57,7 +51,7 @@ void trap_inferior_continue(trap_inferior_t inferior)
 {
   pid_t pid = inferior;
 
-  ptrace(PTRACE_CONT, pid, ignored_ptr, no_continue_signal);
+  ptrace_util_continue(pid);
   while(1) {
     int status;
     waitpid(pid, &status, 0);
