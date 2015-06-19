@@ -2,9 +2,16 @@
 #include "ptrace_util.h"
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+
+struct breakpoint_t {
+  uintptr_t target_address;
+  uintptr_t aligned_address;
+  uintptr_t original_breakpoint_word;
+};
+typedef struct breakpoint_t breakpoint_t;
 
 static trap_breakpoint_callback_t g_callback;
-static uintptr_t g_original_breakpoint_word;
 
 void trap_breakpoint_set_callback(trap_breakpoint_callback_t callback)
 {
@@ -22,15 +29,19 @@ trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
   uintptr_t aligned_address = target_address & ~(0x7UL);
   uintptr_t target_offset = target_address - aligned_address;
 
+  breakpoint_t *bp = malloc(sizeof(breakpoint_t));
 
-  g_original_breakpoint_word = ptrace_util_peek_text(inferior_pid,
-						     aligned_address);
-  modified_word = g_original_breakpoint_word;
+  bp->original_breakpoint_word = ptrace_util_peek_text(inferior_pid,
+						       aligned_address);
+  bp->target_address = target_address;
+  bp->aligned_address = aligned_address;
+
+  modified_word = bp->original_breakpoint_word;
   modified_word &= ~(0xFFUL << (target_offset * 8));
   modified_word |= int3_opcode << (target_offset * 8);
   ptrace_util_poke_text(inferior_pid, aligned_address, modified_word);
 
-  return 0;
+  return bp;
 }
 
 static void breakpoint_trigger_callback(trap_inferior_t inferior,
@@ -47,11 +58,11 @@ static trap_breakpoint_t breakpoint_resolve(trap_inferior_t inferior)
 static void breakpoint_remove(trap_inferior_t inferior,
 			      trap_breakpoint_t handle)
 {
-  unsigned long target_address = 0x000000000040079d;
+  breakpoint_t *bp = (breakpoint_t *)handle;
   pid_t inferior_pid = inferior;
 
-  ptrace_util_poke_text(inferior_pid, target_address, 
-			g_original_breakpoint_word);
+  ptrace_util_poke_text(inferior_pid, bp->aligned_address, 
+			bp->original_breakpoint_word);
 }
 
 void breakpoint_handle(trap_inferior_t inferior)

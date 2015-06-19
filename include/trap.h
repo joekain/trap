@@ -32,7 +32,7 @@ typedef int trap_inferior_t;
  * inferior.  That is, the handle must always be used in conjunction
  * with a `trap_inferior_t`.
  */
-typedef int trap_breakpoint_t;
+typedef void *trap_breakpoint_t;
 
 /**
  * @brief A function pointer used as a callback.
