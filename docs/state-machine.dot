@@ -1,0 +1,8 @@
+digraph G {
+    
+  EXEC [shape = point label = ""]
+  EXEC -> STOPPED            [label = " Exec "]
+  STOPPED -> RUNNING         [label = " Continue "]
+  RUNNING -> SINGLE_STEPPING [label = " SIGTRAP "]
+  SINGLE_STEPPING -> RUNNING [label = " SIGTRAP "]
+}
