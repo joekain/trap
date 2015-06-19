@@ -40,18 +40,19 @@ trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
   return 0;
 }
 
-void breakpoint_trigger_callback(trap_inferior_t inferior,
-				 trap_breakpoint_t handle)
+static void breakpoint_trigger_callback(trap_inferior_t inferior,
+					trap_breakpoint_t handle)
 {
   (*g_callback)(inferior, handle);
 }
 
-trap_breakpoint_t breakpoint_resolve(trap_inferior_t inferior)
+static trap_breakpoint_t breakpoint_resolve(trap_inferior_t inferior)
 {
   return 0;
 }
 
-void breakpoint_remove(trap_inferior_t inferior, trap_breakpoint_t handle)
+static void breakpoint_remove(trap_inferior_t inferior,
+			      trap_breakpoint_t handle)
 {
   const void *target_address = (void *)0x000000000040079d;
   pid_t inferior_pid = inferior;
