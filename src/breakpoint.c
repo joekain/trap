@@ -3,9 +3,13 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/types.h>
+#include <sys/user.h>
 
 static trap_breakpoint_callback_t g_callback;
 static uintptr_t g_original_breakpoint_word;
+static const void *ignored_ptr;
+static const void *no_continue_signal = 0;
 
 void trap_breakpoint_set_callback(trap_breakpoint_callback_t callback)
 {
@@ -54,4 +58,20 @@ void breakpoint_remove(trap_inferior_t inferior, trap_breakpoint_t handle)
 
   ptrace(PTRACE_POKETEXT, inferior_pid, target_address,
 	 g_original_breakpoint_word);
+}
+
+void breakpoint_handle(trap_inferior_t inferior)
+{
+  struct user_regs_struct regs;
+  pid_t pid = inferior;
+
+  trap_breakpoint_t bp = breakpoint_resolve(inferior);
+  breakpoint_remove(inferior, bp);
+  breakpoint_trigger_callback(inferior, bp);
+
+  ptrace(PTRACE_GETREGS, pid, ignored_ptr, &regs);
+  regs.rip -= 1;
+  ptrace(PTRACE_SETREGS, pid, ignored_ptr, &regs);
+
+  ptrace(PTRACE_CONT, pid, ignored_ptr, no_continue_signal);
 }

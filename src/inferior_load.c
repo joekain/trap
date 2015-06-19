@@ -1,7 +1,7 @@
 #include <trap.h>
+#include "breakpoint.h"
 #include "inferior.h"
 #include <sys/ptrace.h>
-#include <sys/user.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <stdio.h>
@@ -63,17 +63,7 @@ void trap_inferior_continue(trap_inferior_t inferior)
     waitpid(pid, &status, 0);
 
     if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
-      struct user_regs_struct regs;
-
-      trap_breakpoint_t bp = breakpoint_resolve(inferior);
-      breakpoint_remove(inferior, bp);
-      breakpoint_trigger_callback(inferior, bp);
-
-      ptrace(PTRACE_GETREGS, pid, ignored_ptr, &regs);
-      regs.rip -= 1;
-      ptrace(PTRACE_SETREGS, pid, ignored_ptr, &regs);
-
-      ptrace(PTRACE_CONT, pid, ignored_ptr, no_continue_signal);
+      breakpoint_handle(inferior);
     } else if (WIFEXITED(status)) {
       return;
     } else {
