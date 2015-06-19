@@ -67,3 +67,13 @@ void ptrace_util_set_instruction_pointer(pid_t pid, uintptr_t ip)
     abort();
   }
 }
+
+void ptrace_util_single_step(pid_t pid)
+{
+  static const void *no_step_signal = 0;
+  int result = ptrace(PTRACE_SINGLESTEP, pid, ignored_addr, no_step_signal);
+  if (result != 0) {
+    perror("PTRACE_SINGLESTEP: ");
+    abort();
+  }    
+}
