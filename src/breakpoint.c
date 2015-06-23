@@ -1,5 +1,6 @@
 #include <trap.h>
 #include "ptrace_util.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -12,7 +13,9 @@ struct breakpoint_t {
 };
 typedef struct breakpoint_t breakpoint_t;
 
-breakpoint_t g_breakpoint;
+#define MAX_BREAKPOINTS 100
+static int g_num_breakpoints;
+static breakpoint_t g_breakpoints[MAX_BREAKPOINTS];
 
 static trap_breakpoint_callback_t g_callback;
 
@@ -34,12 +37,21 @@ static void breakpoint_set(trap_inferior_t inferior, breakpoint_t *bp)
   ptrace_util_poke_text(pid, bp->aligned_address, modified_word);
 }
 
+static breakpoint_t *breakpoint_allocate()
+{
+  int index = g_num_breakpoints;
+  g_num_breakpoints++;
+
+  assert(index < MAX_BREAKPOINTS);
+  return &g_breakpoints[index];
+}
+
 trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
                                                char *location)
 {
   const uintptr_t target_address = (uintptr_t)location;
   uintptr_t aligned_address = target_address & ~(0x7UL);
-  breakpoint_t *bp = &g_breakpoint;
+  breakpoint_t *bp = breakpoint_allocate();
 
   bp->original_breakpoint_word = ptrace_util_peek_text(inferior,
 						       aligned_address);
@@ -68,7 +80,7 @@ static void breakpoint_remove(trap_inferior_t inferior,
   breakpoint_t *bp = (breakpoint_t *)handle;
   pid_t inferior_pid = inferior;
 
-  ptrace_util_poke_text(inferior_pid, bp->aligned_address, 
+  ptrace_util_poke_text(inferior_pid, bp->aligned_address,
 			bp->original_breakpoint_word);
 }
 
