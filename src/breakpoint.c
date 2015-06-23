@@ -98,15 +98,15 @@ static void breakpoint_remove(trap_inferior_t inferior,
 
 static void step_over_breakpoint(trap_inferior_t inferior)
 {
-  struct user_regs_struct regs;
+  uintptr_t ip;
   pid_t pid = inferior;
 
   trap_breakpoint_t bp = breakpoint_resolve(inferior);
   breakpoint_remove(inferior, bp);
   breakpoint_trigger_callback(inferior, bp);
 
-  ptrace_util_get_regs(pid, &regs);
-  ptrace_util_set_instruction_pointer(pid, regs.rip - 1);
+  ip = ptrace_util_get_instruction_pointer(pid);
+  ptrace_util_set_instruction_pointer(pid, ip - 1);
 
   ptrace_util_single_step(pid);
 }
