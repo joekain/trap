@@ -77,13 +77,15 @@ static breakpoint_t *find_breakpoint_with_target_address(uintptr_t address)
     }
   }
 
-  assert(!"Could not find breakpoint with target address");
+  return NULL;
 }
 
 static trap_breakpoint_t breakpoint_resolve(trap_inferior_t inferior)
 {
   uintptr_t ip = ptrace_util_get_instruction_pointer(inferior) - 1;
-  return find_breakpoint_with_target_address(ip);
+  trap_breakpoint_t result = find_breakpoint_with_target_address(ip);
+  assert(result);
+  return result;
 }
 
 static void breakpoint_remove(trap_inferior_t inferior,
@@ -131,5 +133,23 @@ enum inferior_state_t breakpoint_handle(trap_inferior_t inferior, enum inferior_
 
     default:
       abort();
+  }
+}
+
+void trap_inferior_remove_breakpoint(trap_inferior_t inferior,
+		                                 trap_breakpoint_t handle)
+{
+  breakpoint_t *bp = (breakpoint_t *)handle;
+  breakpoint_t tempBP;
+
+  assert(&g_breakpoints[0] <= bp && bp < &g_breakpoints[g_num_breakpoints]);
+
+  tempBP = *bp;
+  bp->target_address = 0;
+  bp->aligned_address = 0;
+  bp->original_breakpoint_word = 0;
+
+  if (!find_breakpoint_with_target_address(tempBP.target_address)) {
+    breakpoint_remove(inferior, &tempBP);
   }
 }

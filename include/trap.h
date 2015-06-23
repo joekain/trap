@@ -27,7 +27,7 @@ typedef int trap_inferior_t;
  *
  * A `trap_breakppint_t` handle is used to refer to a breakpoint in
  * Trap API calls.
- * 
+ *
  * A `trap_breakpoint_t` handle is only meaningful given a specific
  * inferior.  That is, the handle must always be used in conjunction
  * with a `trap_inferior_t`.
@@ -36,7 +36,7 @@ typedef void *trap_breakpoint_t;
 
 /**
  * @brief A function pointer used as a callback.
- * 
+ *
  * @see trap_breakpoint_set_callback
  */
 typedef void (*trap_breakpoint_callback_t)(trap_inferior_t, trap_breakpoint_t);
@@ -55,7 +55,7 @@ void trap_breakpoint_set_callback(trap_breakpoint_callback_t callback);
  * @param path The full path to the binary to execute.
  * @param argv A NULL terminated list of command line arguments to
  *   pass to the inferior process.
- * 
+ *
  * @return Returns a handle for the new inferior.
  *
  * The arguments to this function match those of execv(3)
@@ -75,6 +75,21 @@ trap_inferior_t trap_inferior_exec(const char *path, char *const argv[]);
  */
 trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
 					       char *location);
+
+/**
+ * @brief Remove breakpoint `bp` from `inferior`
+ *
+ * `trap_inferior_remove_breakpoint` will remove a previously set breakpoint in
+ * the inferior.  Callbacks will no longer be generated for this breakpoint.
+ * Execution will no longer stop at the breakpoint unless another breakpoint
+ * at the same location already exists.
+ *
+ * @param inferior The handle of the inferior process from which to remove the
+ *   breakpoint.
+ * @param bp The handle of the breakpoint to remove.
+ */
+void trap_inferior_remove_breakpoint(trap_inferior_t inferior,
+		                                 trap_breakpoint_t bp);
 
 /**
  * @brief Continue execution of `inferior`.
