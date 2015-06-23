@@ -27,6 +27,17 @@ static breakpoint_t g_breakpoints[MAX_BREAKPOINTS];
 
 static trap_breakpoint_callback_t g_callback;
 
+static breakpoint_t *find_breakpoint_with_target_address(uintptr_t address)
+{
+  for (int i = 0; i < g_num_breakpoints; i++) {
+    if (g_breakpoints[i].target_address == address) {
+      return &g_breakpoints[i];
+    }
+  }
+
+  return NULL;
+}
+
 void trap_breakpoint_set_callback(trap_breakpoint_callback_t callback)
 {
   g_callback = callback;
@@ -62,8 +73,13 @@ trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
   uintptr_t aligned_address = target_address & ~(0x7UL);
   breakpoint_t *bp = breakpoint_allocate();
 
-  bp->original_breakpoint_word = ptrace_util_peek_text(inferior,
-						       aligned_address);
+  breakpoint_t *existing = find_breakpoint_with_target_address(target_address);
+  if (existing) {
+    bp->original_breakpoint_word = existing->original_breakpoint_word;
+  } else {
+    bp->original_breakpoint_word = ptrace_util_peek_text(inferior,
+						                                             aligned_address);
+  }
   bp->target_address = target_address;
   bp->aligned_address = aligned_address;
 
@@ -76,17 +92,6 @@ static void breakpoint_trigger_callback(trap_inferior_t inferior,
 					trap_breakpoint_t handle)
 {
   (*g_callback)(inferior, handle);
-}
-
-static breakpoint_t *find_breakpoint_with_target_address(uintptr_t address)
-{
-  for (int i = 0; i < g_num_breakpoints; i++) {
-    if (g_breakpoints[i].target_address == address) {
-      return &g_breakpoints[i];
-    }
-  }
-
-  return NULL;
 }
 
 static trap_breakpoint_t breakpoint_resolve(trap_inferior_t inferior)
@@ -143,9 +148,12 @@ static void do_deferred_removals(trap_inferior_t inferior)
 
 static void finish_breakpoint(trap_inferior_t inferior, breakpoint_t *bp)
 {
+  uintptr_t target_address = bp->target_address;
+
   do_deferred_removals(inferior);
-  if (bp && bp->state == BREAKPOINT_ACTIVE) {
-    breakpoint_set(inferior, bp);
+  breakpoint_t *new_bp = find_breakpoint_with_target_address(target_address);
+  if (new_bp) {
+    breakpoint_set(inferior, new_bp);
   }
   ptrace_util_continue(inferior);
 }
