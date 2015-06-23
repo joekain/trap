@@ -98,14 +98,21 @@ static void breakpoint_remove(trap_inferior_t inferior,
 			bp->original_breakpoint_word);
 }
 
-static void step_over_breakpoint(trap_inferior_t inferior)
+static void do_callbacks(trap_inferior_t inferior, breakpoint_t *bp)
+{
+  for (int i = 0; i < g_num_breakpoints; i++) {
+    if (g_breakpoints[i].target_address == bp->target_address) {
+      breakpoint_trigger_callback(inferior, &g_breakpoints[i]);
+    }
+  }
+}
+
+static void step_over_breakpoint(trap_inferior_t inferior, breakpoint_t *bp)
 {
   uintptr_t ip;
   pid_t pid = inferior;
 
-  trap_breakpoint_t bp = breakpoint_resolve(inferior);
   breakpoint_remove(inferior, bp);
-  breakpoint_trigger_callback(inferior, bp);
 
   ip = ptrace_util_get_instruction_pointer(pid);
   ptrace_util_set_instruction_pointer(pid, ip - 1);
@@ -113,22 +120,52 @@ static void step_over_breakpoint(trap_inferior_t inferior)
   ptrace_util_single_step(pid);
 }
 
-static void finish_breakpoint(trap_inferior_t inferior)
+static void finish_breakpoint(trap_inferior_t inferior, breakpoint_t *bp)
 {
-  breakpoint_t *bp = breakpoint_resolve(inferior);
   breakpoint_set(inferior, bp);
   ptrace_util_continue(inferior);
 }
 
+static enum inferior_state_t start_breakpoint(trap_inferior_t inferior,
+                                              breakpoint_t *bp)
+{
+  breakpoint_t temp_bp = *bp;
+
+  do_callbacks(inferior, bp);
+  if (!bp->target_address) {
+    /*
+     * The breakpoint was deleted in the callback. There are two possiblities.
+     * 1. This breakpoint was unique and we should now continue and go to the
+     *    running state.
+     * 2. There was another breakpoint at this address and we need to single
+     *    step over it.
+     */
+    breakpoint_t *duplicate_bp =
+      find_breakpoint_with_target_address(temp_bp.target_address);
+    if (duplicate_bp) {
+      // Use the duplicate_bp for the single step
+      bp = duplicate_bp;
+    } else {
+      // Unique
+      ptrace_util_continue(inferior);
+      return INFERIOR_RUNNING;
+    }
+  }
+  step_over_breakpoint(inferior, bp);
+
+  return INFERIOR_SINGLE_STEPPING;
+}
+
 enum inferior_state_t breakpoint_handle(trap_inferior_t inferior, enum inferior_state_t state)
 {
+  trap_breakpoint_t bp = breakpoint_resolve(inferior);
+
   switch(state) {
     case INFERIOR_RUNNING:
-      step_over_breakpoint(inferior);
-      return INFERIOR_SINGLE_STEPPING;
+      return start_breakpoint(inferior, bp);
 
     case INFERIOR_SINGLE_STEPPING:
-      finish_breakpoint(inferior);
+      finish_breakpoint(inferior, bp);
       return INFERIOR_RUNNING;
 
     default:
