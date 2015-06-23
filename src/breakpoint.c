@@ -57,7 +57,7 @@ trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
 						       aligned_address);
   bp->target_address = target_address;
   bp->aligned_address = aligned_address;
-  
+
   breakpoint_set(inferior, bp);
 
   return bp;
@@ -69,9 +69,21 @@ static void breakpoint_trigger_callback(trap_inferior_t inferior,
   (*g_callback)(inferior, handle);
 }
 
+static breakpoint_t *find_breakpoint_with_target_address(uintptr_t address)
+{
+  for (int i = 0; i < g_num_breakpoints; i++) {
+    if (g_breakpoints[i].target_address == address) {
+      return &g_breakpoints[i];
+    }
+  }
+
+  assert(!"Could not find breakpoint with target address");
+}
+
 static trap_breakpoint_t breakpoint_resolve(trap_inferior_t inferior)
 {
-  return &g_breakpoint;
+  uintptr_t ip = ptrace_util_get_instruction_pointer(inferior) - 1;
+  return find_breakpoint_with_target_address(ip);
 }
 
 static void breakpoint_remove(trap_inferior_t inferior,

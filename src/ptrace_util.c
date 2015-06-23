@@ -58,6 +58,13 @@ void ptrace_util_set_regs(pid_t pid, struct user_regs_struct *regs)
   }
 }
 
+uintptr_t ptrace_util_get_instruction_pointer(pid_t pid)
+{
+  uintptr_t offset = offsetof(struct user, regs.rip);
+  return ptrace(PTRACE_PEEKUSER, pid, offset, ignored_data);
+}
+
+
 void ptrace_util_set_instruction_pointer(pid_t pid, uintptr_t ip)
 {
   uintptr_t offset = offsetof(struct user, regs.rip);
@@ -75,5 +82,5 @@ void ptrace_util_single_step(pid_t pid)
   if (result != 0) {
     perror("PTRACE_SINGLESTEP: ");
     abort();
-  }    
+  }
 }

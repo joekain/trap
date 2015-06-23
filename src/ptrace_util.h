@@ -12,6 +12,7 @@ void ptrace_util_poke_text(pid_t pid, unsigned long target_address,
 			   unsigned long data);
 void ptrace_util_get_regs(pid_t pid, struct user_regs_struct *regs);
 void ptrace_util_set_regs(pid_t pid, struct user_regs_struct *regs);
+uintptr_t ptrace_util_get_instruction_pointer(pid_t pid);
 void ptrace_util_set_instruction_pointer(pid_t pid, uintptr_t ip);
 void ptrace_util_single_step(pid_t);
 
