@@ -6,11 +6,19 @@
 #include <stdlib.h>
 #include <breakpoint.h>
 
+enum breakpoint_state_t {
+  BREAKPOINT_UNALLOCATED,
+  BREAKPOINT_ACTIVE,
+  BREAKPOINT_DEFERED_REMOVE
+};
+
 struct breakpoint_t {
   uintptr_t target_address;
   uintptr_t aligned_address;
   uintptr_t original_breakpoint_word;
+  enum breakpoint_state_t state;
 };
+
 typedef struct breakpoint_t breakpoint_t;
 
 #define MAX_BREAKPOINTS 100
@@ -43,6 +51,7 @@ static breakpoint_t *breakpoint_allocate()
   g_num_breakpoints++;
 
   assert(index < MAX_BREAKPOINTS);
+  g_breakpoints[index].state = BREAKPOINT_ACTIVE;
   return &g_breakpoints[index];
 }
 
@@ -177,16 +186,21 @@ void trap_inferior_remove_breakpoint(trap_inferior_t inferior,
 		                                 trap_breakpoint_t handle)
 {
   breakpoint_t *bp = (breakpoint_t *)handle;
-  breakpoint_t tempBP;
+  enum inferior_state_t state = inferior_get_state(inferior);
 
-  assert(&g_breakpoints[0] <= bp && bp < &g_breakpoints[g_num_breakpoints]);
+  assert(bp->state == BREAKPOINT_ACTIVE);
 
-  tempBP = *bp;
-  bp->target_address = 0;
-  bp->aligned_address = 0;
-  bp->original_breakpoint_word = 0;
+  switch(state) {
+    case INFERIOR_STOPPED:
+      breakpoint_remove(inferior, bp);
+      bp->state = BREAKPOINT_UNALLOCATED;
+      break;
 
-  if (!find_breakpoint_with_target_address(tempBP.target_address)) {
-    breakpoint_remove(inferior, &tempBP);
+    case INFERIOR_RUNNING:
+      bp->state = BREAKPOINT_DEFERED_REMOVE;
+      break;
+
+    default:
+      abort();
   }
 }

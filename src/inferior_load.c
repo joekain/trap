@@ -78,3 +78,9 @@ void trap_inferior_continue(trap_inferior_t inferior)
     }
   }
 }
+
+enum inferior_state_t inferior_get_state(trap_inferior_t inferior)
+{
+  inferior_t *inf = inferior_resolve(inferior);
+  return inf->state;
+}
