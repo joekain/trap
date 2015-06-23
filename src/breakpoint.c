@@ -9,7 +9,7 @@
 enum breakpoint_state_t {
   BREAKPOINT_UNALLOCATED,
   BREAKPOINT_ACTIVE,
-  BREAKPOINT_DEFERED_REMOVE
+  BREAKPOINT_DEFERRED_REMOVE
 };
 
 struct breakpoint_t {
@@ -129,37 +129,31 @@ static void step_over_breakpoint(trap_inferior_t inferior, breakpoint_t *bp)
   ptrace_util_single_step(pid);
 }
 
+static void do_deferred_removals(trap_inferior_t inferior)
+{
+  for (int i = 0; i < g_num_breakpoints; i++) {
+    if (g_breakpoints[i].state == BREAKPOINT_DEFERRED_REMOVE) {
+      g_breakpoints[i].target_address = 0;
+      g_breakpoints[i].aligned_address = 0;
+      g_breakpoints[i].original_breakpoint_word = 0;
+      g_breakpoints[i].state = BREAKPOINT_UNALLOCATED;
+    }
+  }
+}
+
 static void finish_breakpoint(trap_inferior_t inferior, breakpoint_t *bp)
 {
-  breakpoint_set(inferior, bp);
+  do_deferred_removals(inferior);
+  if (bp && bp->state == BREAKPOINT_ACTIVE) {
+    breakpoint_set(inferior, bp);
+  }
   ptrace_util_continue(inferior);
 }
 
 static enum inferior_state_t start_breakpoint(trap_inferior_t inferior,
                                               breakpoint_t *bp)
 {
-  breakpoint_t temp_bp = *bp;
-
   do_callbacks(inferior, bp);
-  if (!bp->target_address) {
-    /*
-     * The breakpoint was deleted in the callback. There are two possiblities.
-     * 1. This breakpoint was unique and we should now continue and go to the
-     *    running state.
-     * 2. There was another breakpoint at this address and we need to single
-     *    step over it.
-     */
-    breakpoint_t *duplicate_bp =
-      find_breakpoint_with_target_address(temp_bp.target_address);
-    if (duplicate_bp) {
-      // Use the duplicate_bp for the single step
-      bp = duplicate_bp;
-    } else {
-      // Unique
-      ptrace_util_continue(inferior);
-      return INFERIOR_RUNNING;
-    }
-  }
   step_over_breakpoint(inferior, bp);
 
   return INFERIOR_SINGLE_STEPPING;
@@ -197,7 +191,7 @@ void trap_inferior_remove_breakpoint(trap_inferior_t inferior,
       break;
 
     case INFERIOR_RUNNING:
-      bp->state = BREAKPOINT_DEFERED_REMOVE;
+      bp->state = BREAKPOINT_DEFERRED_REMOVE;
       break;
 
     default:
