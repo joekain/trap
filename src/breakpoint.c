@@ -158,13 +158,11 @@ static void finish_breakpoint(trap_inferior_t inferior, breakpoint_t *bp)
   ptrace_util_continue(inferior);
 }
 
-static enum inferior_state_t start_breakpoint(trap_inferior_t inferior,
-                                              breakpoint_t *bp)
+static void start_breakpoint(trap_inferior_t inferior,
+                             breakpoint_t *bp)
 {
   do_callbacks(inferior, bp);
   step_over_breakpoint(inferior, bp);
-
-  return INFERIOR_SINGLE_STEPPING;
 }
 
 enum inferior_state_t breakpoint_handle(trap_inferior_t inferior, enum inferior_state_t state)
@@ -173,7 +171,8 @@ enum inferior_state_t breakpoint_handle(trap_inferior_t inferior, enum inferior_
 
   switch(state) {
     case INFERIOR_RUNNING:
-      return start_breakpoint(inferior, bp);
+      start_breakpoint(inferior, bp);
+      return INFERIOR_SINGLE_STEPPING;
 
     case INFERIOR_SINGLE_STEPPING:
       finish_breakpoint(inferior, bp);
