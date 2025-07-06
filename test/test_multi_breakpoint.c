@@ -20,7 +20,7 @@ int main()
 
   trap_breakpoint_set_callback(breakpoint_callback);
   g_inferior = trap_inferior_exec("./inferiors/loop", argv);
-  g_bp = trap_inferior_set_breakpoint(g_inferior, (char *)0x000000000040076d);
+  g_bp = trap_inferior_set_breakpoint(g_inferior, (char *)0x0000000000001129);
   trap_inferior_continue(g_inferior);
 
   assert(g_breakpoint_count == 5);
