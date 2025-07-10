@@ -4,6 +4,7 @@ include_directories(. ../include)
 
 set(TESTS test_exec
           test_breakpoint
+	  test_multiple_breakpoints
 	  test_multi_breakpoint)
 
 foreach(TEST ${TESTS})
