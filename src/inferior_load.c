@@ -5,6 +5,8 @@
 #include <sys/wait.h>
 #include <assert.h>
 #include <errno.h>
+#include <sys/personality.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -12,6 +14,11 @@ static inferior_t g_inferior;
 
 static void setup_inferior(const char *path, char *const argv[])
 {
+  unsigned long old = personality(0xFFFFFFFF);
+  if (personality(old | ADDR_NO_RANDOMIZE) < 0) {
+    perror("Failed to set personality:");
+  }
+
   ptrace_util_traceme();
   execv(path, argv);
 }
