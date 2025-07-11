@@ -2,6 +2,9 @@
 #include <trap.h>
 #include <unistd.h>
 
+const char *ADDRESS_OF_MAIN = (char*)0x0000555555555140;
+const char *ADDRESS_OF_FOO  = (char*)0x0000555555555131;
+
 int g_foo_count = 0;
 int g_main_count = 0;
 
@@ -26,8 +29,8 @@ int main()
 
   trap_breakpoint_set_callback(breakpoint_callback);
   g_inferior = trap_inferior_exec("./inferiors/loop", argv);
-  g_bp_main = trap_inferior_set_breakpoint(g_inferior, (char *)0x0000000000400778);
-  g_bp_foo  = trap_inferior_set_breakpoint(g_inferior, (char *)0x000000000040076d);
+  g_bp_main = trap_inferior_set_breakpoint(g_inferior, ADDRESS_OF_MAIN);
+  g_bp_foo  = trap_inferior_set_breakpoint(g_inferior, ADDRESS_OF_FOO);
   trap_inferior_continue(g_inferior);
 
   assert(g_main_count == 1);
