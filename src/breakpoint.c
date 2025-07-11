@@ -1,9 +1,12 @@
+#include <assert.h>
 #include <trap.h>
 #include "ptrace_util.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <breakpoint.h>
+#include <sys/wait.h>
+#include <signal.h>
 
 struct breakpoint_t {
   uintptr_t target_address;
@@ -12,7 +15,8 @@ struct breakpoint_t {
 };
 typedef struct breakpoint_t breakpoint_t;
 
-breakpoint_t g_breakpoint;
+#define MAX_BREAKPOINTS 100
+breakpoint_t g_breakpoints[MAX_BREAKPOINTS];
 
 static trap_breakpoint_callback_t g_callback;
 
@@ -34,18 +38,29 @@ static void breakpoint_set(trap_inferior_t inferior, breakpoint_t *bp)
   ptrace_util_poke_text(pid, bp->aligned_address, modified_word);
 }
 
+breakpoint_t *breakpoint_alloc() {
+  // linear search for unused breakpoint
+  for (breakpoint_t *bp = g_breakpoints; bp < &g_breakpoints[MAX_BREAKPOINTS]; bp++) {
+    if (bp->target_address == 0) {
+      // This is free, take it.
+      return bp;
+    }
+  }
+  assert(!"Failed to find a free breakpoint!");
+}
+
 trap_breakpoint_t trap_inferior_set_breakpoint(trap_inferior_t inferior,
                                                char *location)
 {
   const uintptr_t target_address = (uintptr_t)location;
   uintptr_t aligned_address = target_address & ~(0x7UL);
-  breakpoint_t *bp = &g_breakpoint;
+  breakpoint_t *bp = breakpoint_alloc();
 
   bp->original_breakpoint_word = ptrace_util_peek_text(inferior,
 						       aligned_address);
   bp->target_address = target_address;
   bp->aligned_address = aligned_address;
-  
+
   breakpoint_set(inferior, bp);
 
   return bp;
@@ -59,7 +74,20 @@ static void breakpoint_trigger_callback(trap_inferior_t inferior,
 
 static trap_breakpoint_t breakpoint_resolve(trap_inferior_t inferior)
 {
-  return &g_breakpoint;
+  pid_t pid = inferior;
+  struct user_regs_struct regs;
+  uintptr_t target_address;
+
+  ptrace_util_get_regs(pid, &regs);
+  target_address = regs.rip - 1;  // Back up to the start of the breakpoint
+
+  // linear search for target_address
+  for (breakpoint_t *bp = g_breakpoints; bp < &g_breakpoints[MAX_BREAKPOINTS]; bp++) {
+    if (bp->target_address == target_address) {
+      return bp;
+    }
+  }
+  assert(!"Failed to find existing breakpoint at address");
 }
 
 static void breakpoint_remove(trap_inferior_t inferior,
@@ -68,16 +96,15 @@ static void breakpoint_remove(trap_inferior_t inferior,
   breakpoint_t *bp = (breakpoint_t *)handle;
   pid_t inferior_pid = inferior;
 
-  ptrace_util_poke_text(inferior_pid, bp->aligned_address, 
+  ptrace_util_poke_text(inferior_pid, bp->aligned_address,
 			bp->original_breakpoint_word);
 }
 
-static void step_over_breakpoint(trap_inferior_t inferior)
+static void step_over_breakpoint(trap_inferior_t inferior, breakpoint_t *bp)
 {
   struct user_regs_struct regs;
   pid_t pid = inferior;
 
-  trap_breakpoint_t bp = breakpoint_resolve(inferior);
   breakpoint_remove(inferior, bp);
   breakpoint_trigger_callback(inferior, bp);
 
@@ -87,25 +114,29 @@ static void step_over_breakpoint(trap_inferior_t inferior)
   ptrace_util_single_step(pid);
 }
 
-static void finish_breakpoint(trap_inferior_t inferior)
+static void finish_breakpoint(trap_inferior_t inferior, breakpoint_t *bp)
 {
-  breakpoint_t *bp = breakpoint_resolve(inferior);
   breakpoint_set(inferior, bp);
   ptrace_util_continue(inferior);
 }
 
 enum inferior_state_t breakpoint_handle(trap_inferior_t inferior, enum inferior_state_t state)
 {
-  switch(state) {
-    case INFERIOR_RUNNING:
-      step_over_breakpoint(inferior);
-      return INFERIOR_SINGLE_STEPPING;
+  pid_t pid = inferior;
+  trap_breakpoint_t bp = breakpoint_resolve(inferior);
+  int status;
 
-    case INFERIOR_SINGLE_STEPPING:
-      finish_breakpoint(inferior);
-      return INFERIOR_RUNNING;
-
-    default:
-      abort();
+  assert(state == INFERIOR_RUNNING);
+  step_over_breakpoint(inferior, bp);
+  waitpid(pid, &status, 0);
+  if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
+    finish_breakpoint(inferior, bp);
+    return INFERIOR_RUNNING;
+  } else if (WIFEXITED(status)) {
+    // This is a lie, but it should cause trap_inferior_continue to wait again.
+    return INFERIOR_RUNNING;
+  } else {
+    fprintf(stderr, "Unexpected stop in trap_inferior_continue: 0x%x\n", status);
+    abort();
   }
 }
