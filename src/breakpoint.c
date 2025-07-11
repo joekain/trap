@@ -1,9 +1,11 @@
 #include <trap.h>
 #include "ptrace_util.h"
 #include <assert.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <breakpoint.h>
 
 enum breakpoint_state_t {
@@ -167,19 +169,22 @@ static void start_breakpoint(trap_inferior_t inferior,
 
 enum inferior_state_t breakpoint_handle(trap_inferior_t inferior, enum inferior_state_t state)
 {
+  pid_t pid = inferior;
   trap_breakpoint_t bp = breakpoint_resolve(inferior);
+  int status;
 
-  switch(state) {
-    case INFERIOR_RUNNING:
-      start_breakpoint(inferior, bp);
-      return INFERIOR_SINGLE_STEPPING;
-
-    case INFERIOR_SINGLE_STEPPING:
-      finish_breakpoint(inferior, bp);
-      return INFERIOR_RUNNING;
-
-    default:
-      abort();
+  assert(state == INFERIOR_RUNNING);
+  start_breakpoint(inferior, bp);
+  waitpid(pid, &status, 0);
+  if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
+    finish_breakpoint(inferior, bp);
+    return INFERIOR_RUNNING;
+  } else if (WIFEXITED(status)) {
+    // This is a lie, but it should cause trap_inferior_continue to wait again.
+    return INFERIOR_RUNNING;
+  } else {
+    fprintf(stderr, "Unexpected stop in trap_inferior_continue: 0x%x\n", status);
+    abort();
   }
 }
 
